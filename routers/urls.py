@@ -1,0 +1,53 @@
+from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+from database import get_db
+from models import URL
+from schemas import URLCreate, URLResponse
+from datetime import datetime, timezone
+import random
+import string
+router = APIRouter()
+
+def generate_short_code():
+    return "".join(random.choices(string.ascii_letters+ string.digits,k=6))
+
+@router.get("/")
+def home():
+    return {"message": "URL Shortener is running"}
+
+@router.post("/shorten", response_model=URLResponse)
+def create_short_url(data: URLCreate, db: Session = Depends(get_db)):
+    
+    if data.custom_code :
+        existing = db.query(URL).filter(URL.short_code == data.custom_code).first()
+        if existing :
+            raise HTTPException(status_code=409, detail = "Custom code already in use")
+        short_code = data.custom_code
+    else :
+      while True:
+          short_code = generate_short_code()
+          if db.query(URL).filter(URL.short_code == short_code).first() is None:
+              break
+
+    combined_url = "http://127.0.0.1:8000/" + short_code
+    final_url = URL(short_code=short_code, original_url=str(data.url), expires_at = data.expires_at)
+    db.add(final_url)
+    db.commit()
+
+    return URLResponse(short_url=combined_url)
+
+@router.get("/{short_code}")
+def redirect_url(short_code: str, db: Session = Depends(get_db)):
+    local_url = db.query(URL).filter(URL.short_code == short_code).first()
+
+    if local_url is None:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+    
+    if local_url.expires_at and local_url.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="This link has expired")
+
+    return RedirectResponse(local_url.original_url)
+ 
+
