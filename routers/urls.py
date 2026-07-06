@@ -51,7 +51,26 @@ def redirect_url(short_code: str, db: Session = Depends(get_db)):
     
     if local_url.expires_at and local_url.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=410, detail="This link has expired")
-
+    
+    local_url.clicks+=1
+    db.commit()
     return RedirectResponse(local_url.original_url)
+
+@router.get("/{short_code}/stats")
+def get_stats(short_code:str, db : Session = Depends(get_db)):
+    local_url = db.query(URL).filter(URL.short_code == short_code).first()
+
+    if local_url is None:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+    
+    return{
+        "short_code":short_code,
+        "original_url":local_url.original_url,
+        "clicks":local_url.clicks,
+        "created_at":local_url.created_at,
+        "expires_at":local_url.expires_at
+    }
+
+
  
 
