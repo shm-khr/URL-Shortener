@@ -8,10 +8,6 @@ from schemas import URLCreate, URLResponse
 from datetime import datetime, timezone
 import random
 import string
-import os
-
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
-
 router = APIRouter()
 
 def generate_short_code():
@@ -35,7 +31,7 @@ def create_short_url(data: URLCreate, db: Session = Depends(get_db)):
           if db.query(URL).filter(URL.short_code == short_code).first() is None:
               break
 
-    combined_url = BASE_URL + "/" + short_code
+    combined_url = "http://127.0.0.1:8000/" + short_code
     final_url = URL(short_code=short_code, original_url=str(data.url), expires_at = data.expires_at)
     db.add(final_url)
     db.commit()
