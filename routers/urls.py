@@ -6,6 +6,7 @@ from database import get_db
 from models import URL
 from schemas import URLCreate, URLResponse
 from datetime import datetime, timezone
+from fastapi.responses import FileResponse
 import random
 import string
 import os
@@ -19,7 +20,7 @@ def generate_short_code():
 
 @router.get("/")
 def home():
-    return {"message": "URL Shortener is running"}
+    return FileResponse("static/index.html")
 
 @router.post("/shorten", response_model=URLResponse)
 def create_short_url(data: URLCreate, db: Session = Depends(get_db)):
@@ -70,7 +71,3 @@ def get_stats(short_code:str, db : Session = Depends(get_db)):
         "created_at":local_url.created_at,
         "expires_at":local_url.expires_at
     }
-
-
- 
-
