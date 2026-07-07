@@ -1,12 +1,11 @@
 from fastapi import APIRouter
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse,FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from models import URL
 from schemas import URLCreate, URLResponse
 from datetime import datetime, timezone
-from fastapi.responses import FileResponse
 import random
 import string
 import os
@@ -43,20 +42,6 @@ def create_short_url(data: URLCreate, db: Session = Depends(get_db)):
 
     return URLResponse(short_url=combined_url)
 
-@router.get("/{short_code}")
-def redirect_url(short_code: str, db: Session = Depends(get_db)):
-    local_url = db.query(URL).filter(URL.short_code == short_code).first()
-
-    if local_url is None:
-        raise HTTPException(status_code=404, detail="Short URL not found")
-    
-    if local_url.expires_at and local_url.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=410, detail="This link has expired")
-    
-    local_url.clicks+=1
-    db.commit()
-    return RedirectResponse(local_url.original_url)
-
 @router.get("/{short_code}/stats")
 def get_stats(short_code:str, db : Session = Depends(get_db)):
     local_url = db.query(URL).filter(URL.short_code == short_code).first()
@@ -71,3 +56,18 @@ def get_stats(short_code:str, db : Session = Depends(get_db)):
         "created_at":local_url.created_at,
         "expires_at":local_url.expires_at
     }
+
+@router.get("/{short_code}")
+def redirect_url(short_code: str, db: Session = Depends(get_db)):
+    local_url = db.query(URL).filter(URL.short_code == short_code).first()
+
+    if local_url is None:
+        raise HTTPException(status_code=404, detail="Short URL not found")
+    
+    if local_url.expires_at and local_url.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=410, detail="This link has expired")
+    
+    local_url.clicks+=1
+    db.commit()
+    return RedirectResponse(local_url.original_url)
+
